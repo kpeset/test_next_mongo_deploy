@@ -1,46 +1,24 @@
-import { GetStaticProps } from 'next';
-import Profile from '@/components/profile';
-import {
-  getAllUsers,
-  UserProps,
-  getUserCount,
-  getFirstUser
-} from '@/lib/api/user';
-import { defaultMetaProps } from '@/components/layout/meta';
-import clientPromise from '@/lib/mongodb';
+import clientPromise from "@/lib/mongodb";
+import type { InferGetServerSidePropsType } from "next";
 
-export default function Home({ user }: { user: UserProps }) {
-  return <Profile user={user} settings={false} />;
+export default function Home({
+	isConnected,
+}: InferGetServerSidePropsType<typeof getServerSideProps>) {
+	return (
+		<main>
+			<h1>Hello World!</h1>
+			<p>Statut MongoDB : {isConnected ? "🟢 Connecté" : "🔴 Non connecté"}</p>
+		</main>
+	);
 }
 
-export const getStaticProps: GetStaticProps = async () => {
-  // You should remove this try-catch block once your MongoDB Cluster is fully provisioned
-  try {
-    await clientPromise;
-  } catch (e: any) {
-    if (e.code === 'ENOTFOUND') {
-      // cluster is still provisioning
-      return {
-        props: {
-          clusterStillProvisioning: true
-        }
-      };
-    } else {
-      throw new Error(`Connection limit reached. Please try again later.`);
-    }
-  }
-
-  const results = await getAllUsers();
-  const totalUsers = await getUserCount();
-  const firstUser = await getFirstUser();
-
-  return {
-    props: {
-      meta: defaultMetaProps,
-      results,
-      totalUsers,
-      user: firstUser
-    },
-    revalidate: 10
-  };
-};
+export async function getServerSideProps() {
+	try {
+		const client = await clientPromise;
+		await client.db("admin").command({ ping: 1 }); // test rapide de la connexion
+		return { props: { isConnected: true } };
+	} catch (e) {
+		console.error(e);
+		return { props: { isConnected: false } };
+	}
+}
